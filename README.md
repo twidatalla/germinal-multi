@@ -5,9 +5,9 @@
 </p>
 
 Germinal Multi extends [Germinal](https://github.com/SantiagoMille/germinal) to
-**multi-target design**: co-optimising one antibody against several antigen
-states at the same time, so a single binder has to satisfy every state at once
-rather than being optimised against one structure and tested on the others.
+**multi-target design**: co-optimizing a single binder against multiple targets
+simultaneously. Each design is evaluated against every state during optimization, rather than 
+being optimized against one structure and subsequently tested against the others.
 
 ## Setup
 
@@ -16,7 +16,7 @@ rather than being optimised against one structure and tested on the others.
 **Prerequisites:**
 - [PyRosetta](https://www.pyrosetta.org/) (academic license required)
 - [ColabDesign/AlphaFold-Multimer parameters](https://storage.googleapis.com/alphafold/alphafold_params_2022-12-06.tar) (~4 GB; [environment_setup.md](environment_setup.md) section 4 has the download commands)
-- [AlphaFold3 parameters](https://github.com/google-deepmind/alphafold3) (the default folding backend and what the shipped thresholds are calibrated against; [Protenix](https://github.com/bytedance/Protenix) can replace it, uncalibrated)
+- [AlphaFold3 parameters](https://github.com/google-deepmind/alphafold3) (the default folding backend, against which the supplied filtering thresholds were calibrated; [Protenix](https://github.com/bytedance/Protenix) is supported as an alternative backend, but the supplied thresholds have not been calibrated for it.)
 - JAX with GPU support
 
 > **Note:** AbLang is not yet supported. The only supported antibody language
@@ -26,14 +26,13 @@ rather than being optimised against one structure and tested on the others.
 **System Requirements:**
 - **GPU**: NVIDIA GPU with CUDA support. This needs a compute node — it will
   not run on a laptop, an Apple-silicon Mac, or a free Colab tier.
-- **Memory**: **Plan on 80GB VRAM.** Every shipped configuration co-optimises a
-  ~242-residue scFv against two antigen states, which means two AlphaFold
+- **Memory**: **Recommended GPU memory: 80GB VRAM.** Every shipped configuration co-optimizes a
+  ~242-residue scFv against two antigen targets, which means two AlphaFold
   forward and backward passes per step. The 40GB figure often quoted for
   Germinal is an upstream single-target nanobody number and does not apply.
 - **Storage**: 50GB+ for results, **plus** several hundred GB for the AF3
   genetic databases, the colabfold MSA database, the AF3 container image and
-  the AlphaFold-Multimer parameters (~4GB). Budget for the databases, not the
-  results.
+  the AlphaFold-Multimer parameters (~4GB). Database storage accounts for most of the total storage requirement.
 - **On a shared GPU partition, expect occasional `RESOURCE_EXHAUSTED` and
   retry.** Setting `XLA_PYTHON_CLIENT_PREALLOCATE=false` makes JAX allocate on
   demand rather than reserving the card up front, which shares a node better but
@@ -45,23 +44,22 @@ rather than being optimised against one structure and tested on the others.
 
 ### Installation
 
-**See [environment_setup.md](environment_setup.md).** It is the single source:
+**See [environment_setup.md](environment_setup.md).** See environment_setup.md (environment_setup.md) for the complete installation instructions,
 cloning with submodules, the conda environment, ColabDesign and Germinal,
 PyRosetta, the AlphaFold-Multimer and AbMPNN weights, `validate_install.py`,
 the optional Protenix backend and the test suite.
 
 **AlphaFold3 is set up separately — see [docs/af3-setup.md](docs/af3-setup.md).**
-The experimental validation used AF3 for filtering.
+AF3 was used for filtering designs selected for experimental validation.
 
 ## Usage
 
 ### Quick Start
 
-There is one entry point, `run_germinal_multi.py`, routed by the
-`logits_only` and `recycling` config keys. It requires at least two antigen
-states -- single-target design is not supported. Both use [Hydra](https://hydra.cc/) for
-configuration, with
-`configs/config.yaml` holding high-level run parameters plus pointers to the
+The pipeline uses a single entry point, `run_germinal_multi.py`, with execution controlled by the
+`logits_only` and `recycling` configuration keys. Germinal Multi requires at least two antigen
+targets. Configuration is managed with [Hydra](https://hydra.cc/): `configs/config.yaml` 
+defines high-level parameters plus pointers to the
 granular settings.
 
 Those settings live in five groups, selected independently on the command line:
@@ -107,21 +105,20 @@ configs/
         └── scfv_multi.yaml       # Final acceptance filters
 ```
 
-A run config and a target config are **not** freely interchangeable: each run
-config carries the binder geometry (`cdr_lengths`, `fw_lengths`, `vh_len`, and
-for rescue the `complex_path`), and that must match the binder in the starting
-complex. `config.validate_binder_length` checks the lengths at startup --
-`sum(cdr_lengths) + sum(fw_lengths)` against the binder chain -- and fails
-loudly, rather than letting every CDR window silently shift. It does **not**
-check `vh_len`, which is consumed separately by the IgLM prep. See
+#### Configuration compatibility
+Run and target configurations must be **compatible**. Each run
+configuration specified the binder geometry (`cdr_lengths`, `fw_lengths`, `vh_len`) and, 
+for rescue configurations, `complex_path`. These settings must match the binder in the starting
+complex. At startup, `config.validate_binder_length` compares
+`sum(cdr_lengths) + sum(fw_lengths)` with the binder-chain length and raises an error if they differ. 
+It does **not** validate `vh_len`, which is used separately during IgLM preparation. See
 [docs/shipped-configs.md](docs/shipped-configs.md) for the pairings that are
 known to validate.
 
 > **Note:** these configs are reasonable starting points for parameter
 > exploration, not recipes guaranteed to work out of the box on a new target.
 
-To change a run you can create a new config yaml, swap any of the four settings
-files, or pass overrides on the command line.
+To change a run, create or select configuration files, or override individual parameters on the command line. 
 
 ### Basic Usage
 
@@ -173,20 +170,18 @@ the `<placeholders>` for your partition and AF3 paths (see
 
 ### Target Configuration
 
-For each new target you define a target settings yaml. Germinal is
-multi-target only -- there must be two or more antigen states, and every per-target
-field takes a **list** with one entry per antigen state:
+For each new target, create a target configuration YAML file. Germinal Multi requires two or more antigen targets, and with one entry per state in each per-target list:
 
 ```yaml
 # @package target
 target_name: ["state_wt", "state_mut"]   # must be unique: these key the per-state columns
 target_pdb_path: ["pdbs/state_wt.pdb", "pdbs/state_mut.pdb"]
-target_chain: "A"                        # shared across states
+target_chain: "A"                        # shared across targets
 binder_chain: "B"
 target_hotspots: ["A43,A98,A133", "A43,A98,A133"]
 ```
 
-The number of antigen states is **derived** from these lists, not declared:
+The number of antigen targets is **derived** from these lists, not declared:
 `target_name`, `target_pdb_path` and `target_hotspots` must all have the same
 length, and startup fails naming the mismatch if they do not. (There is no
 `num_targets` key -- it used to duplicate the list length with nothing checking
@@ -194,11 +189,11 @@ the two agreed.)
 
 The hotspot lists are per state, so they can differ — useful when a mutation
 shifts the numbering of the epitope you want to hold. `target_chain` and
-`binder_chain` are shared across all states.
+`binder_chain` are shared across all targets.
 
-**Any number of antigen states works.** The count is derived from the list
-lengths, and the default `multi_grad_merge_method: "sum"` combines the
-per-target gradients across however many there are. The one exception is
+**The number of antigen targets is determined by the lengths of the per-target lists.** 
+The count is derived from the list lengths, and the default `multi_grad_merge_method: "sum"` 
+combines the per-target gradients across however many there are. The one exception is
 `"pcgrad"`, which merges exactly two; above that it switches to `"sum"` at
 startup with a printed note, and the effective value is recorded in
 `final_config.yaml`. The shipped campaigns are all two-state.
@@ -213,10 +208,11 @@ python run_germinal_multi.py 'target.target_hotspots=["A74,A84,A170","A74,A84,A1
 
 ### Filters Configuration
 
-There are two sets of filters: post-hallucination (initial) filters and final filters. The post-hallucination filters are applied after the hallucination step to determine which sequences to proceed to the redesign step. This filter set is a subset of the final filters, which is applied at the end of the pipeline to determine passing antibody sequences. Here is an example of the post-hallucination filters:
-Every key must carry its stage as a prefix (`initial.` or `final.`) — an
-unprefixed key is rejected at startup, so the config key and the CSV column it
-produces read the same:
+Initial filters are applied after hallucination to select designs for sequence redesign. 
+Final filters are applied at the end of the pipeline to determine which designs are accepted. 
+The initial filter set is a subset of the final filter set. Each filter key must include its 
+stage prefix (initial. or final.); keys without a stage prefix are rejected at startup. 
+For example:
 
 ```yaml
 initial.clashes:
@@ -232,7 +228,7 @@ initial.percent_interface_cdr:
   operator: '>'
 ```
 
-## Output Format
+## Output and troubleshooting
 
 [docs/pipeline/](docs/pipeline/) documents the pipeline one document per stage —
 hallucination, early check, initial filter, redesign and recycling, final filter
@@ -243,7 +239,7 @@ Germinal generates organized output directories:
 ```
 results/<experiment_name>/          # results_dir in configs/config.yaml, then experiment_name
 ├── final_config.yaml           # Complete run configuration after overrides
-├── trajectories/               # Deaths before the final filters: hallucination, the initial
+├── trajectories/               # Designs rejected before final filtering: hallucination, the initial
 │   ├── structures/             #   cofolding filters, a failed AbMPNN redesign, or the recycle
 │   └── designs.csv             #   ipSAE gate. See failure_stage to tell them apart.
 ├── filter_failed/              # Reached the final filters and failed them
@@ -275,15 +271,15 @@ than starting a new one.
 > all, so a 12-hour run can end with an empty log and no traceback.
 >
 > `all_trajectories.csv` and the `inflight/` directory are still the better
-> way to watch progress, since they survive anything.
+> way to watch progress, since they remain available if the job is interrupted.
 
 **Hallucination batching.** The pipeline does not fold each hallucination
 passer immediately. It accumulates designs that clear the hallucination
 confidence gates (iPTM, iPAE, pLDDT) in an `inflight/` queue until either
 `max_hallucination_passing` (default 5) passers are collected or
 `max_hallucination_attempts` (default 100) total attempts are exhausted.
-Only then does it fire PHASE B — a single batched cofolding call on all
-accumulated passers. This means the pipeline can appear idle for hours while
+Only then does it starts the batched cofolding stage — a single batched cofolding call on all
+accumulated designs that pass the hallucination filters. This means the pipeline can appear idle for hours while
 hallucination runs; `inflight/` growing is the sign of progress.
 
 Raise `max_hallucination_passing` for a target whose gates pass most designs,
