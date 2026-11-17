@@ -9,6 +9,14 @@ Germinal Multi extends [Germinal](https://github.com/SantiagoMille/germinal) to
 simultaneously. Each design is evaluated against every state during optimization, rather than 
 being optimized against one structure and subsequently tested against the others.
 
+## Paper
+
+Germinal Multi accompanies the preprint
+[Antibody design across observed and forecasted antigenic evolution].
+
+- [Full text](https://www.biorxiv.org/content/10.64898/2026.11.10.765734v2)
+- [PDF](https://www.biorxiv.org/content/10.64898/2026.11.10.765734v2.full.pdf)
+
 ## Setup
 
 ### Requirements
@@ -44,7 +52,7 @@ being optimized against one structure and subsequently tested against the others
 
 ### Installation
 
-**See [environment_setup.md](environment_setup.md).** See environment_setup.md (environment_setup.md) for the complete installation instructions,
+**See [environment_setup.md](environment_setup.md). for the complete installation instructions,**
 cloning with submodules, the conda environment, ColabDesign and Germinal,
 PyRosetta, the AlphaFold-Multimer and AbMPNN weights, `validate_install.py`,
 the optional Protenix backend and the test suite.
