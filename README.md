@@ -12,7 +12,7 @@ being optimized against one structure and subsequently tested against the others
 ## Paper
 
 Germinal Multi accompanies the preprint
-[Antibody design across observed and forecasted antigenic evolution].
+[Antibody design across observed and forecasted antigenic evolution](https://www.biorxiv.org/content/10.64898/2026.11.10.765734v2.abstract).
 
 - [Full text](https://www.biorxiv.org/content/10.64898/2026.11.10.765734v2)
 - [PDF](https://www.biorxiv.org/content/10.64898/2026.11.10.765734v2.full.pdf)
